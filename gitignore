@@ -1,0 +1,46 @@
+# ---- Java / Spring Boot
+target/
+*.iml
+*.class
+*.log
+*.jar
+*.war
+*.ear
+/.project
+/.classpath
+/.settings/
+/.idea/
+*.ipr
+*.iws
+*.bak
+
+# Gradle / Maven
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+mvnw.cmd
+mvnw
+.mvn/
+
+# ---- Flutter / Android
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock
+**/ios/Pods/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/android/.gradle/
+**/android/local.properties
+**/android/app/release
+**/android/key.properties
+
+# ---- Node (ถ้ามี frontend web)
+node_modules/
+
+# ---- OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
