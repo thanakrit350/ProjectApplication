@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>เพิ่ม/แก้ไข ร้านอาหาร</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/admin.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+  <style>
+    *{ box-sizing:border-box; }
+    :root{--border:#e5e7eb;--accent:#06b6d4;--danger:#ef4444;--ok:#10b981}
+    body{
+      font-family:"Noto Sans Thai","Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:#f7f7fb;margin:0;color:#111827;
+    }
+    .wrap{max-width:980px;margin:22px auto;padding:0 16px}
+    .titlebar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .titlebar h2{margin:0;font-size:20px;font-weight:800}
+    .titlebar a{color:inherit;text-decoration:none}
+    .titlebar a:hover{text-decoration:underline}
+
+    .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;overflow:hidden}
+
+    .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+    .row > *, .full{min-width:0}
+    .full{grid-column:1/-1}
+
+    label{font-size:13px;margin-bottom:6px;display:block}
+    input,textarea,select{display:block;width:100%;max-width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;transition:.15s}
+    textarea{min-height:100px;resize:vertical}
+    .help{font-size:12px;color:#6b7280}
+
+    .timeRow .timegroup{display:flex;gap:8px}
+    .timeRow .timegroup select{flex:1;min-width:0}
+
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+    .btn{padding:10px 14px;border-radius:10px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
+    .btn.secondary{background:#fff;color:#111}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .ok{border-color:var(--ok);background:#f0fdf4}
+    .bad{border-color:var(--danger);background:#fff7f7}
+
+    .rules{margin-top:6px;border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:8px 10px;color:#991b1b;font-size:12px;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+    .rules.hidden{display:none}
+    .rules ul{margin:6px 0 0 18px;padding:0}
+    .rules li{margin:2px 0}
+    .rules li.pass{color:#166534;list-style:"✔  "}
+    .rules li.fail{color:#991b1b;list-style:"✖  "}
+
+    .preview{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:100%}
+    .thumb{position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#f3f4f6;aspect-ratio:16/10}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .thumb .rm{position:absolute;top:6px;right:6px;border:0;border-radius:999px;width:28px;height:28px;background:rgba(0,0,0,.55);color:#fff;cursor:pointer}
+    .thumb.removed::after{content:"ลบแล้ว";position:absolute;inset:auto 6px 6px 6px;background:rgba(239,68,68,.9);color:#fff;font-size:12px;padding:2px 6px;border-radius:6px}
+    .thumb.removed{opacity:.35}
+
+    #map{height:320px;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:100%}
+    .note{font-size:12px;color:#6b7280;margin-top:6px}
+
+    #typeOtherWrap{display:none;margin-top:8px}
+    #typeOther{padding:10px 12px}
+
+    @media(max-width:900px){
+      .row{grid-template-columns:1fr}
+      .preview{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="titlebar">
+      <h2 id="pageTitle"><a href="./ListRestaurantPage.html">เพิ่มร้านอาหาร</a></h2>
+    </div>
+
+    <form id="form" class="card" enctype="multipart/form-data" novalidate>
+      <!-- รูป -->
+      <div class="full" style="margin-bottom:8px;">
+        <label>รูปร้านอาหาร (เลือกได้หลายรูป)</label>
+        <input id="files" type="file" accept="image/*" multiple />
+        <div id="imgRules" class="rules hidden">
+          <strong>รูปร้านอาหาร (restaurantImg)</strong>
+          <ul>
+            <li data-k="type"  class="fail">รองรับเฉพาะไฟล์รูปภาพ (.jpg .jpeg .png)</li>
+            <li data-k="empty" class="pass">อัปโหลดได้ หรือเว้นว่างก็ได้</li>
+          </ul>
+        </div>
+        <div id="preview" class="preview" style="margin-top:10px;"></div>
+        <div class="note">เพิ่มรูปแล้วพรีวิวทันที • ในโหมดแก้ไขสามารถกด ✕ เพื่อลบรูปเดิมทีละรูป และกด ↩ เพื่อยกเลิกการลบ</div>
+      </div>
+
+      <div class="row">
+        <div class="full">
+          <label>ชื่อร้านอาหาร</label>
+          <input id="restaurantName" name="restaurantName" placeholder="กรอกชื่อร้าน" />
+          <div id="nameRules" class="rules hidden">
+            <strong>ชื่อร้านอาหาร (restaurantName)</strong>
+            <ul>
+              <li data-k="charset" class="fail">ไทย/อังกฤษ/ตัวเลข และอักขระ [! # _ . ]</li>
+              <li data-k="len"     class="fail">ความยาว 2–500 ตัวอักษร</li>
+              <li data-k="space"   class="pass">สามารถมีช่องว่างได้</li>
+              <li data-k="empty"   class="fail">ต้องไม่เป็นค่าว่าง</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="full">
+          <label>คำอธิบายร้าน</label>
+          <textarea id="description" name="description" placeholder="รายละเอียดร้าน…"></textarea>
+          <div id="descRules" class="rules hidden">
+            <strong>คำอธิบายร้าน (descriptionRestaurant)</strong>
+            <ul>
+              <li data-k="charset" class="fail">ไทย/อังกฤษ/ตัวเลข และอักขระ [! # _ . ]</li>
+              <li data-k="len"     class="fail">ความยาว 2–500 ตัวอักษร (ถ้าใส่)</li>
+              <li data-k="empty"   class="pass">ปล่อยว่างได้</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- เวลาเปิด/ปิด -->
+        <div class="timeRow">
+          <label>เวลาเปิด</label>
+          <div class="timegroup">
+            <select id="openH"></select>
+            <select id="openM"></select>
+          </div>
+          <div id="openRules" class="rules hidden">
+            <strong>เวลาเปิด (openTime)</strong>
+            <ul><li data-k="has" class="fail">ต้องเลือกเวลา</li></ul>
+          </div>
+        </div>
+        <div class="timeRow">
+          <label>เวลาปิด</label>
+          <div class="timegroup">
+            <select id="closeH"></select>
+            <select id="closeM"></select>
+          </div>
+          <!-- อัปเดตกฎเวลาปิดให้รองรับความสมดุลตามที่ต้องการ -->
+          <div id="closeRules" class="rules hidden">
+            <strong>เวลาปิด (closeTime)</strong>
+            <ul>
+              <li data-k="has"   class="fail">ต้องเลือกเวลา</li>
+              <li data-k="order" class="fail">ถ้าวันเดียวกันต้องปิดช้ากว่าเวลาเปิด</li>
+              <li data-k="overnight" class="fail">อนุญาตข้ามเที่ยงคืนเฉพาะกรณีเปิดตั้งแต่ 12:00 เป็นต้นไป</li>
+              <li data-k="min1h" class="fail">ต้องห่างจากเวลาเปิดอย่างน้อย 1 ชั่วโมง</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="full">
+          <label>ตำแหน่งร้านบนแผนที่ (คลิกเพื่อปักหมุด / ลากเพื่อเลื่อน)</label>
+          <div id="map"></div>
+          <div class="note">ละติจูด/ลองจิจูดจะอัปเดตตามหมุด (หรือพิมพ์เองก็ได้)</div>
+        </div>
+
+        <div>
+          <label>ละติจูด</label>
+          <input id="lat" name="latitude" inputmode="decimal" placeholder="เช่น 18.788300" />
+          <div id="latRules" class="rules hidden">
+            <strong>ละติจูด (latitude)</strong>
+            <ul>
+              <li data-k="format" class="fail">เป็นตัวเลขทศนิยม</li>
+              <li data-k="range"  class="fail">อยู่ระหว่าง -90 ถึง 90</li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <label>ลองจิจูด</label>
+          <input id="lon" name="longitude" inputmode="decimal" placeholder="เช่น 98.985300" />
+          <div id="lonRules" class="rules hidden">
+            <strong>ลองจิจูด (longitude)</strong>
+            <ul>
+              <li data-k="format" class="fail">เป็นตัวเลขทศนิยม</li>
+              <li data-k="range"  class="fail">อยู่ระหว่าง -180 ถึง 180</li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <label>จังหวัด</label>
+          <input id="province" name="province" />
+          <div id="provRules" class="rules hidden">
+            <strong>จังหวัด (province)</strong>
+            <ul>
+              <li data-k="charset" class="fail">ตัวอักษรไทย/อังกฤษเท่านั้น</li>
+              <li data-k="len"     class="fail">ความยาว 2–100 ตัวอักษร</li>
+              <li data-k="space"   class="pass">มีช่องว่างได้</li>
+              <li data-k="empty"   class="fail">ต้องไม่เป็นค่าว่าง</li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <label>อำเภอ</label>
+          <input id="district" name="district" />
+          <div id="distRules" class="rules hidden">
+            <strong>อำเภอ (district)</strong>
+            <ul>
+              <li data-k="charset" class="fail">ตัวอักษรไทย/อังกฤษเท่านั้น</li>
+              <li data-k="len"     class="fail">ความยาว 2–100 ตัวอักษร</li>
+              <li data-k="space"   class="pass">มีช่องว่างได้</li>
+              <li data-k="empty"   class="fail">ต้องไม่เป็นค่าว่าง</li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <label>ตำบล</label>
+          <input id="subdistrict" name="subdistrict" />
+          <div id="subdistRules" class="rules hidden">
+            <strong>ตำบล (subdistrict)</strong>
+            <ul>
+              <li data-k="charset" class="fail">ตัวอักษรไทย/อังกฤษเท่านั้น</li>
+              <li data-k="len"     class="fail">ความยาว 2–100 ตัวอักษร</li>
+              <li data-k="space"   class="pass">มีช่องว่างได้</li>
+              <li data-k="empty"   class="fail">ต้องไม่เป็นค่าว่าง</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="full">
+          <label>ประเภทอาหาร</label>
+          <select id="typeSel"><option value="">— ไม่ระบุ —</option></select>
+          <div id="typeOtherWrap">
+            <div class="help" style="margin-bottom:6px">พิมพ์ชื่อประเภทใหม่ที่ต้องการเพิ่ม</div>
+            <input id="typeOther" placeholder="เช่น คาเฟ่, อาหารเวียดนาม" />
+          </div>
+          <div class="help">เลือก 1 รายการ; หรือเลือก “อื่นๆ…” แล้วกรอกชื่อ</div>
+        </div>
+
+        <div>
+          <label>หมายเลขโทรศัพท์</label>
+          <input id="phone" name="restaurantPhone" inputmode="numeric" placeholder="เช่น 0891234567" />
+          <div id="phoneRules" class="rules hidden">
+            <strong>หมายเลขโทรศัพท์ (restaurantPhone)</strong>
+            <ul>
+              <li data-k="format" class="fail">ตัวเลข 10 หลัก และขึ้นต้น 06/08/09</li>
+              <li data-k="space"  class="fail">ห้ามมีช่องว่าง</li>
+              <li data-k="empty"  class="fail">ต้องไม่เป็นค่าว่าง</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn secondary" id="backBtn">ยกเลิก</button>
+        <button type="submit" class="btn" id="saveBtn">บันทึก</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- ปิด native tooltip -->
+  <script>
+    document.addEventListener('invalid', (e)=>{ e.preventDefault(); }, true);
+    document.addEventListener('DOMContentLoaded', ()=>{
+      document.querySelectorAll('[required]').forEach(el=>el.removeAttribute('required'));
+      const f=document.getElementById('form'); if(f) f.setAttribute('novalidate','novalidate');
+    });
+  </script>
+
+  <script>
+    const params=new URLSearchParams(location.search);
+    const id=params.get('id');
+    const $ = (s,p=document)=>p.querySelector(s);
+
+    const filesEl = $('#files'), preview = $('#preview');
+    const nameEl = $('#restaurantName'), descEl = $('#description');
+    const openH = $('#openH'), openM = $('#openM'), closeH = $('#closeH'), closeM = $('#closeM');
+    const latEl = $('#lat'), lonEl = $('#lon');
+    const provEl = $('#province'), distEl=$('#district'), subdistEl=$('#subdistrict');
+    const typeSel = $('#typeSel'), typeOtherWrap = $('#typeOtherWrap'), typeOther = $('#typeOther');
+    const phoneEl = $('#phone');
+    const pageTitle = $('#pageTitle'), form = $('#form'), saveBtn = $('#saveBtn');
+
+    /* ---------- Build time dropdown (HH + 00/30) + ค่าเริ่มต้นเปิด 08:00 ---------- */
+    (function buildTime(){
+      for(let h=0; h<24; h++){
+        const v=String(h).padStart(2,'0'); openH.add(new Option(v,v)); closeH.add(new Option(v,v));
+      }
+      ['00','30'].forEach(m=>{ openM.add(new Option(m,m)); closeM.add(new Option(m,m)); });
+      openH.value='08'; openM.value='00'; // default สำหรับหน้าเพิ่มร้าน
+    })();
+
+    /* ---------- Validation helpers ---------- */
+    const TH = '\u0E00-\u0E7F';
+    const nameDescRe = new RegExp(`^[A-Za-z0-9${TH} !#_.]+$`);
+    const lettersOnlyRe = new RegExp(`^[A-Za-z${TH} ]+$`);
+    const phoneRe = /^(06|08|09)\d{8}$/;
+    const num = s => { const n = Number(String(s).replace(/,/g,'')); return Number.isFinite(n) ? n : null; };
+
+    function setRule(box, map){
+      for(const [k,ok] of Object.entries(map)){
+        const li = box.querySelector(`[data-k="${k}"]`); if(li){ li.classList.toggle('pass', ok); li.classList.toggle('fail', !ok); }
+      }
+      const allOK = Object.values(map).every(Boolean); box.classList.toggle('hidden', allOK); return allOK;
+    }
+    function mark(el, ok){ el.classList.toggle('ok', ok); el.classList.toggle('bad', !ok); }
+
+    function validateImages(){
+      if(!filesEl.files.length){ setRule($('#imgRules'), {type:true, empty:true}); return true; }
+      let okType = true;
+      for(const f of filesEl.files){
+        const ext = (f.name.split('.').pop()||'').toLowerCase();
+        if(!/^image\//.test(f.type) || !['jpg','jpeg','png'].includes(ext)){ okType=false; break; }
+      }
+      setRule($('#imgRules'), {type:okType, empty:true}); return okType;
+    }
+    function validateName(){
+      const s = (nameEl.value||'').trim();
+      const res = { charset: nameDescRe.test(s), len: s.length>=2 && s.length<=500, space: true, empty: s.length>0 };
+      const ok = setRule($('#nameRules'), res); mark(nameEl, ok); return ok;
+    }
+    function validateDesc(){
+      const s = (descEl.value||'').trim();
+      const res = { charset: s===''?true:nameDescRe.test(s), len: s===''?true:(s.length>=2 && s.length<=500), empty: true };
+      const ok = setRule($('#descRules'), res); mark(descEl, ok); return ok;
+    }
+    function validateTimeBox(hSel, mSel, boxId){
+      const ok = !!hSel.value && !!mSel.value;
+      const box = $(boxId);
+      setRule(box, {has: ok});
+      hSel.classList.toggle('bad', !ok); mSel.classList.toggle('bad', !ok);
+      hSel.classList.toggle('ok', ok);   mSel.classList.toggle('ok', ok);
+      return ok;
+    }
+    function validateLetterField(el, boxId){
+      const s = (el.value||'').trim();
+      const res = { charset: lettersOnlyRe.test(s), len: s.length>=2 && s.length<=100, space:true, empty:s.length>0 };
+      const ok=setRule($(boxId), res); mark(el, ok); return ok;
+    }
+    function validatePhone(){
+      const v=(phoneEl.value||'');
+      const res={ format: phoneRe.test(v), space: !/\s/.test(v), empty: v.length>0 };
+      const ok=setRule($('#phoneRules'), res); mark(phoneEl, ok); return ok;
+    }
+    function validateLat(){
+      const n = num(latEl.value);
+      const ok = n !== null && n >= -90 && n <= 90;
+      setRule($('#latRules'), { format: n!==null, range: n!==null && n>=-90 && n<=90 });
+      mark(latEl, ok); if (ok) updateMarkerFromInputs(); return ok;
+    }
+    function validateLon(){
+      const n = num(lonEl.value);
+      const ok = n !== null && n >= -180 && n <= 180;
+      setRule($('#lonRules'), { format: n!==null, range: n!==null && n>=-180 && n<=180 });
+      mark(lonEl, ok); if (ok) updateMarkerFromInputs(); return ok;
+    }
+
+    /* ---------- ใหม่: ตรวจ "สมดุลเวลา" เปิด-ปิด ---------- */
+    function hhmmToMin(hSel, mSel){
+      const h = parseInt(hSel.value || '', 10);
+      const m = parseInt(mSel.value || '', 10);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h*60 + m;
+    }
+
+    /* 
+      กฎ:
+      - วันเดียวกัน: close > open
+      - ข้ามคืน: อนุญาตเฉพาะกรณี open >= 12:00 และ close < open
+      - ต้องห่างกันอย่างน้อย 60 นาที
+    */
+    function validateTimes(){
+      const haveOpen = !!openH.value && !!openM.value;
+      const haveClose = !!closeH.value && !!closeM.value;
+
+      const box = $('#closeRules');
+      setRule(box, { has: haveOpen && haveClose, order:false, overnight:false, min1h:false });
+
+      [openH, openM, closeH, closeM].forEach(el=>{
+        el.classList.toggle('bad', !(haveOpen && haveClose));
+        el.classList.toggle('ok', (haveOpen && haveClose));
+      });
+      if(!(haveOpen && haveClose)) return false;
+
+      const oMin = hhmmToMin(openH, openM);
+      const cMin = hhmmToMin(closeH, closeM);
+
+      let orderOK = false;
+      let overnightOK = false;
+      let spanMin = 0;
+
+      if (cMin > oMin){
+        // วันเดียวกัน
+        orderOK = true;
+        overnightOK = true; // ไม่เกี่ยว
+        spanMin = cMin - oMin;
+      } else if (cMin < oMin){
+        // ข้ามคืนได้เฉพาะเปิด >= 12:00
+        const openHour = parseInt(openH.value, 10);
+        if (openHour >= 12){
+          orderOK = true;       // ถือว่า OK ในเชิงลำดับ
+          overnightOK = true;   // ผ่านเงื่อนไขข้ามคืน
+          spanMin = (24*60 - oMin) + cMin;
+        } else {
+          orderOK = false;
+          overnightOK = false;
+        }
+      } else {
+        // เท่ากัน
+        orderOK = false;
+        overnightOK = true; // ไม่เกี่ยว
+      }
+
+      const min1hOK = spanMin >= 60;
+
+      setRule(box, {
+        has: true,
+        order: orderOK,
+        overnight: overnightOK,
+        min1h: min1hOK
+      });
+
+      const allOK = orderOK && overnightOK && min1hOK;
+
+      [openH, openM, closeH, closeM].forEach(el=>{
+        el.classList.toggle('bad', !allOK);
+        el.classList.toggle('ok', allOK);
+      });
+
+      return allOK;
+    }
+
+    filesEl.addEventListener('change', ()=>{ renderPreview(); validateImages(); });
+
+    nameEl.addEventListener('input', validateName);
+    descEl.addEventListener('input', validateDesc);
+    // เปลี่ยนมาใช้ validateTimes สำหรับทั้งสี่ select เวลา
+    openH.addEventListener('change', validateTimes);
+    openM.addEventListener('change', validateTimes);
+    closeH.addEventListener('change', validateTimes);
+    closeM.addEventListener('change', validateTimes);
+    provEl.addEventListener('input', ()=>validateLetterField(provEl,'#provRules'));
+    distEl.addEventListener('input', ()=>validateLetterField(distEl,'#distRules'));
+    subdistEl.addEventListener('input', ()=>validateLetterField(subdistEl,'#subdistRules'));
+    phoneEl.addEventListener('input', validatePhone);
+    latEl.addEventListener('input', validateLat);
+    lonEl.addEventListener('input', validateLon);
+
+    /* ---------- Map ---------- */
+    let map, marker;
+    (function initMap(){
+      const start=[18.7883,98.9853];
+      map=L.map('map',{center:start,zoom:12});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+      marker=L.marker(start,{draggable:true}).addTo(map);
+      function updateLL(latlng){ latEl.value=latlng.lat.toFixed(6); lonEl.value=latlng.lng.toFixed(6); }
+      function updateMarkerFromClick(latlng){ marker.setLatLng(latlng); updateLL(latlng); }
+      window.updateMarkerFromInputs = function(){
+        const la = num(latEl.value), lo = num(lonEl.value);
+        if (la==null || lo==null) return;
+        const ll = {lat:la, lng:lo};
+        marker.setLatLng(ll);
+        map.setView([la, lo], Math.max(map.getZoom(), 15));
+      };
+      updateLL({lat:start[0],lng:start[1]});
+      map.on('click', e=> updateMarkerFromClick(e.latlng));
+      marker.on('dragend', e=> updateLL(e.target.getLatLng()));
+    })();
+
+    /* ---------- Types (เฉพาะที่มีร้าน) + อื่นๆ… ---------- */
+    async function getUsedTypeIds(){
+      const used = new Set();
+      const now = Date.now();
+      try{
+        const resAll = await fetch(`/restaurants?_=${now}`, {cache:'no-store'});
+        if(resAll.ok){
+          const list = await resAll.json();
+          for(const r of list){
+            const tid = r?.restaurantType?.restaurantTypeId ?? r?.restaurantType?.id;
+            if (tid!=null) used.add(Number(tid));
+          }
+          if(used.size) return used;
+        }
+      }catch{}
+      try{
+        const BIG=1000;
+        const url=new URL(window.location.origin + '/restaurants/searchPaged');
+        url.searchParams.set('_', String(now));
+        url.searchParams.set('page','0'); url.searchParams.set('size', String(BIG));
+        const res = await fetch(url, {cache:'no-store'});
+        if(res.ok){
+          const data = await res.json();
+          const list = data.content ?? (Array.isArray(data)?data:[]);
+          for(const r of list){
+            const tid = r?.restaurantType?.restaurantTypeId ?? r?.restaurantType?.id;
+            if (tid!=null) used.add(Number(tid));
+          }
+        }
+      }catch{}
+      return used;
+    }
+
+    async function loadTypesAndRender(){
+      let types = [];
+      try{
+        const res = await fetch('/restaurant-types/non-empty');
+        if(res.ok) types = await res.json();
+      }catch{}
+      if(!types.length){
+        try{
+          const [allRes, used] = await Promise.all([
+            fetch('/restaurant-types'),
+            getUsedTypeIds()
+          ]);
+          const all = allRes.ok ? await allRes.json() : [];
+          types = all.filter(t=>{
+            const id = t.restaurantTypeId ?? t.id;
+            return id!=null && used.has(Number(id));
+          });
+        }catch{}
+      }
+
+      typeSel.innerHTML = '<option value="">— ไม่ระบุ —</option>';
+      types.sort((a,b)=> String(a.typeName??a.name??'').localeCompare(String(b.typeName??b.name??''),'th'));
+      for(const t of types){
+        const id=t.restaurantTypeId ?? t.id, name=t.typeName ?? t.name ?? '';
+        typeSel.add(new Option(name, String(id)));
+      }
+      typeSel.add(new Option('อื่นๆ…','__other__'));
+    }
+
+    typeSel.addEventListener('change', ()=>{
+      const isOther = typeSel.value==='__other__';
+      typeOtherWrap.style.display = isOther ? 'block' : 'none';
+      if(!isOther) typeOther.value='';
+    });
+
+    /* ---------- Prefill (แก้ไข) ---------- */
+    let existingImages=[];                 // url เดิม
+    const removedExisting = new Set();     // url ที่ติ๊กลบ
+
+    async function prefillIfEdit(){
+      if(!id){ pageTitle.innerHTML='<a href="./ListRestaurantPage.html">เพิ่มร้านอาหาร</a>'; return; }
+      pageTitle.innerHTML='<a href="./ListRestaurantPage.html">แก้ไขร้านอาหาร</a>';
+      try{
+        const r=await fetch(`/restaurants/${id}`).then(x=>x.json());
+        nameEl.value = r.restaurantName || '';
+        descEl.value = r.description || '';
+        phoneEl.value = r.restaurantPhone || '';
+        provEl.value = r.province || '';
+        distEl.value = r.district || '';
+        subdistEl.value= r.subdistrict || '';
+        if(r.latitude && r.longitude){
+          latEl.value = r.latitude; lonEl.value=r.longitude;
+          const a=[parseFloat(r.latitude),parseFloat(r.longitude)];
+          if(!isNaN(a[0]) && !isNaN(a[1])){ map.setView(a,15); marker.setLatLng(a); }
+        }
+        const toParts = v => {
+          if(!v) return null; const s=String(v);
+          const hhmm = s.includes('T')? s.slice(11,16) : s.slice(0,5);
+          const [hh,mm]=(hhmm||'').split(':'); return [hh,mm];
+        };
+        const o = toParts(r.openTime), c = toParts(r.closeTime);
+        if(o){ openH.value=o[0]; openM.value=(o[1]==='30'?'30':'00'); }
+        if(c){ closeH.value=c[0]; closeM.value=(c[1]==='30'?'30':'00'); }
+
+        const tid = r.restaurantType?.restaurantTypeId;
+        if(tid!=null){
+          const val=String(tid);
+          const hasOpt = [...typeSel.options].some(o=>o.value===val);
+          if(!hasOpt){
+            const label = r.restaurantType?.typeName ?? 'ประเภทเดิม';
+            const other = typeSel.querySelector('option[value="__other__"]');
+            const opt = new Option(label, val);
+            if(other) typeSel.insertBefore(opt, other); else typeSel.add(opt);
+          }
+          typeSel.value = val;
+        }
+
+        let imgs=[];
+        if(Array.isArray(r.restaurantImg)) imgs=r.restaurantImg;
+        else if(typeof r.restaurantImg==='string'){
+          const s=r.restaurantImg.trim();
+          if(s.startsWith('[')){ try{ imgs=JSON.parse(s)||[]; }catch{} } else if(s) imgs=[s];
+        }
+        existingImages=imgs;
+        renderPreview();
+
+        // คำนวณสถานะเวลาหลัง prefill
+        validateTimes();
+      }catch{}
+    }
+
+    /* ---------- Preview (รูปเดิม: ลบ/ยกเลิกได้) + (รูปใหม่: ลบได้) ---------- */
+    function renderPreview(){
+      preview.innerHTML='';
+
+      // รูปเดิม
+      for(const src of existingImages){
+        const removed = removedExisting.has(src);
+        const box=document.createElement('div'); box.className='thumb'+(removed?' removed':'');
+        const btnLabel = removed ? '↩' : '✕';
+        const titleTxt = removed ? 'ยกเลิกลบรูปนี้' : 'ลบรูปนี้';
+        box.innerHTML=`<img src="${src}" alt=""><button class="rm" type="button" title="${titleTxt}">${btnLabel}</button>`;
+        box.querySelector('.rm').onclick=()=>{
+          if(removed) removedExisting.delete(src); else removedExisting.add(src);
+          renderPreview();
+        };
+        preview.appendChild(box);
+      }
+
+      // รูปใหม่
+      for(const file of filesEl.files){
+        const url=URL.createObjectURL(file);
+        const box=document.createElement('div'); box.className='thumb';
+        box.innerHTML=`<img src="${url}" alt=""><button class="rm" type="button" title="เอารูปนี้ออก">✕</button>`;
+        box.querySelector('.rm').onclick=()=>{
+          const dt=new DataTransfer();
+          for(const f2 of filesEl.files){ if(f2!==file) dt.items.add(f2); }
+          filesEl.files=dt.files; renderPreview(); validateImages();
+        };
+        preview.appendChild(box);
+      }
+    }
+
+    /* ---------- Helper: แปลง URL ของรูปเดิมที่ “เก็บไว้” ให้เป็น File เพื่อส่ง PUT /images ---------- */
+    async function urlToFile(url){
+      try{
+        const res = await fetch(url, {cache:'no-store'});
+        if(!res.ok) return null;
+        const blob = await res.blob();
+        const name = (url.split('/').pop()||'keep').split('?')[0];
+        return new File([blob], name, {type: blob.type || 'image/jpeg'});
+      }catch{ return null; }
+    }
+
+    function timePartsToISO(hSel, mSel){
+      if(!hSel.value || !mSel.value) return '';
+      const d=new Date();
+      const hh = parseInt(hSel.value,10), mm=parseInt(mSel.value,10);
+      d.setHours(hh, mm, 0, 0);
+      const pad=n=>String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+    }
+
+    $('#backBtn').onclick=()=>history.back();
+
+    async function ensureTypeIdIfNeeded(){
+      if(typeSel.value && typeSel.value!=='__other__') return typeSel.value;
+      const name = typeOther.value.trim(); if(!name) return '';
+      try{
+        const res = await fetch('/restaurant-types', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ typeName: name })
+        });
+        if(res.status===201){ const data=await res.json(); return String(data.restaurantTypeId ?? data.id); }
+        if(res.status===409){
+          const r = await fetch('/restaurant-types/search?q='+encodeURIComponent(name));
+          const list = r.ok ? await r.json() : [];
+          const hit = list.find(x => String(x.typeName||'').toLowerCase()===name.toLowerCase());
+          if(hit) return String(hit.restaurantTypeId ?? hit.id);
+        }
+      }catch{}
+      return '';
+    }
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+
+      const ok =
+        validateImages() &
+        validateName() &
+        validateDesc() &
+        // ใช้ validateTimes() แทนการเช็คคู่ละกล่อง
+        validateTimes() &
+        validateLetterField(provEl,'#provRules') &
+        validateLetterField(distEl,'#distRules') &
+        validateLetterField(subdistEl,'#subdistRules') &
+        validatePhone() &
+        validateLat() &
+        validateLon();
+
+      if(!ok){
+        for(const el of [nameEl, descEl, openH, openM, closeH, closeM, provEl, distEl, subdistEl, phoneEl, latEl, lonEl]){
+          if(el.classList.contains('bad')){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus(); break; }
+        }
+        return;
+      }
+
+      saveBtn.disabled=true; saveBtn.textContent='กำลังบันทึก…';
+
+      try{
+        const resolvedTypeId = await ensureTypeIdIfNeeded();
+
+        // ---------- 1) อัปเดตข้อมูลข้อความ ----------
+        const fd=new FormData();
+        fd.append('restaurantName',  nameEl.value.trim());
+        fd.append('description',     (descEl.value||'').trim());
+        fd.append('restaurantPhone', (phoneEl.value||'').trim());
+        fd.append('latitude',  latEl.value.trim());
+        fd.append('longitude', lonEl.value.trim());
+        fd.append('province',  provEl.value.trim());
+        fd.append('district',  distEl.value.trim());
+        fd.append('subdistrict', subdistEl.value.trim());
+        const openIso=timePartsToISO(openH,openM), closeIso=timePartsToISO(closeH,closeM);
+        if(openIso)  fd.append('openTime',  openIso);
+        if(closeIso) fd.append('closeTime', closeIso);
+        if(resolvedTypeId) fd.append('restaurantType', resolvedTypeId);
+
+        if(!id){
+          // โหมดเพิ่ม: ส่งรูปใหม่ไปกับ POST ตามเดิม
+          for(const f of filesEl.files){ fd.append('restaurantImgs', f); }
+          const res = await fetch('/restaurants', { method:'POST', body:fd });
+          if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error(t || 'บันทึกไม่สำเร็จ'); }
+          const data = await res.json().catch(()=> ({}));
+          const rid = data?.restaurantId ?? data?.id ?? '';
+          location.href=`./ListRestaurantPage.html?created=1${rid?`&rid=${encodeURIComponent(rid)}`:''}`;
+          return;
+        }
+
+        // โหมดแก้ไข
+        // คำนวณรูปเดิมที่ "เก็บไว้"
+        const keptUrls = existingImages.filter(src => !removedExisting.has(src));
+        const newFiles = Array.from(filesEl.files);
+
+        // ถ้าไม่มีรูปใด ๆ จะเหลือ (ลบหมด + ไม่ได้อัปใหม่) → ส่ง removeImages=true เพื่อเคลียร์รูป
+        const noImagesWillRemain = keptUrls.length===0 && newFiles.length===0;
+
+        // อัปเดตฟิลด์อื่น ๆ ก่อน (ไม่แตะรูป)
+        if(noImagesWillRemain) fd.append('removeImages','true');
+        const resUpd = await fetch(`/restaurants/${id}`, { method:'PUT', body: fd });
+        if(!resUpd.ok){ const t=await resUpd.text().catch(()=> ''); throw new Error(t || 'อัปเดตข้อมูลไม่สำเร็จ'); }
+
+        // ถ้ามีรูปใด ๆ จะเหลือ → แทนที่รูปทั้งหมดด้วย (รูปเดิมที่เก็บไว้ + รูปใหม่)
+        if(!noImagesWillRemain){
+          const keptFiles = (await Promise.all(keptUrls.map(urlToFile))).filter(Boolean);
+          const fdImg = new FormData();
+          for(const f of keptFiles)  fdImg.append('files', f);
+          for(const f of newFiles)   fdImg.append('files', f);
+          const resImg = await fetch(`/restaurants/${id}/images`, { method:'PUT', body: fdImg });
+          if(!resImg.ok){ const t=await resImg.text().catch(()=> ''); throw new Error(t || 'อัปเดตรูปไม่สำเร็จ'); }
+        }
+
+        location.href=`./ListRestaurantPage.html?updated=1&rid=${encodeURIComponent(id)}`;
+
+      }catch(err){
+        alert(err.message || 'บันทึกไม่สำเร็จ');
+      }finally{
+        saveBtn.disabled=false; saveBtn.textContent='บันทึก';
+      }
+    });
+
+    /* ---------- Boot ---------- */
+    (async function init(){
+      await loadTypesAndRender();
+      await prefillIfEdit(); // ถ้าเป็นแก้ไขจะตั้งเวลา/ข้อมูลจากของเดิม (ทับค่า default 08:00)
+      // ตรวจสถานะเวลาตั้งต้น
+      validateTimes();
+    })();
+  </script>
+</body>
+</html>

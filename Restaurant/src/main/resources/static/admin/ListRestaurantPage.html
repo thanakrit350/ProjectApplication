@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>จัดการร้านอาหาร</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- ฟอนต์: Inter (EN) มาก่อน + Noto Sans Thai (TH) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+Thai:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./css/admin.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+  <style>
+    *{box-sizing:border-box}
+    :root{--bg:#f7f7fb;--card:#fff;--muted:#6b7280;--text:#111827;--border:#e5e7eb;--accent:#06b6d4;--danger:#ef4444;--ok:#14b8a6}
+    html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+    body{
+      margin:0;
+      font-family:"Inter","Noto Sans Thai",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:var(--bg);
+      color:var(--text)
+    }
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    button,input,select{font:inherit}
+    :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+    .page{max-width:1200px;margin:0 auto;padding:0 16px 32px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0}
+    .topbar h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.2px;font-family:"Inter","Noto Sans Thai",sans-serif}
+    .topbar h1.clickable{cursor:pointer;transition:opacity .15s}
+    .topbar h1.clickable:hover{opacity:.85}
+    .userbar{display:flex;align-items:center;gap:10px}
+    .userbar .hello{font-size:14px;color:var(--muted)}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+    .btn.logout{background:#fff;border-color:var(--danger);color:#ef4444}
+    .btn.logout:hover{filter:brightness(.98)}
+
+    .hero{position:relative;z-index:1000;height:240px;margin:6px 0 18px;border-radius:18px;
+      background:url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1800&auto=format&fit=crop') center/cover no-repeat;
+      display:flex;align-items:center;justify-content:center;color:#fff}
+    .hero:after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.45);border-radius:18px;z-index:1}
+    .hero-inner{position:relative;z-index:2;width:100%;max-width:780px;text-align:center;padding:0 12px}
+    .hero h2{margin:0 0 14px;font-size:30px;font-weight:800;letter-spacing:.2px;font-family:"Inter","Noto Sans Thai",sans-serif}
+    .searchbar{display:flex;gap:10px;justify-content:center;position:relative;z-index:3}
+    .searchbar input{width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.25);padding:12px 14px;background:rgba(255,255,255,.92)}
+    .searchbar button{border:0;border-radius:12px;padding:12px 18px;background:var(--accent);color:#fff;cursor:pointer}
+
+    #suggestBox{position:absolute;top:calc(100% + 6px);left:0;right:0;display:none;list-style:none;margin:0;padding:6px 0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.12);max-height:70vh;overflow:auto;z-index:100000}
+    #suggestBox.show{display:block}
+    #suggestBox li{padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer}
+    #suggestBox li:hover,#suggestBox li.active{background:#f0faff}
+    #suggestBox .thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#eef2ff}
+    #suggestBox, #suggestBox li, #suggestBox li * { color:#111 !important; }
+    #suggestBox mark{background:#fffbcc;color:#111 !important}
+
+    .content{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start}
+    .leftcol{display:flex;flex-direction:column;gap:18px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 6px 16px rgba(0,0,0,.04)}
+    .side h3{margin:0 0 8px;letter-spacing:.2px}
+    .filter-list{max-height:300px;overflow:auto;padding-right:6px}
+    .filter-item{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px}
+    .add-card .map{height:180px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+
+    .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .toolbar h2{margin:0;font-size:18px;letter-spacing:.2px}
+    .sort{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff}
+
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .restaurant{overflow:hidden}
+    .cover{position:relative;aspect-ratio:16/9;background:#e5e7eb;border-radius:12px;overflow:hidden;cursor:pointer}
+    .cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+    .cover img.hidden{display:none}
+    .r-body{padding:14px}
+    .r-title{margin:0 0 4px;font-size:18px;font-weight:800;letter-spacing:.2px;font-family:"Inter","Noto Sans Thai",sans-serif}
+    .r-sub{color:var(--muted);font-size:13.5px;margin-bottom:8px}
+    .r-meta{display:flex;gap:18px;color:#6b7280;font-size:13px;margin-bottom:12px}
+    .r-actions{display:flex;gap:8px}
+    .btn.edit{background:var(--ok);border-color:var(--ok);color:#fff}
+    .btn.del{background:var(--danger);border-color:var(--danger);color:#fff}
+
+    /* จุดสไลด์ของรูป (เปลี่ยน class ไม่ให้ชนกับเพจเจอร์) */
+    .slide-dots{position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;gap:6px;pointer-events:none}
+    .slide-dots i{width:6px;height:6px;border-radius:999px;background:rgba(255,255,255,.6);display:block}
+    .slide-dots i.active{background:#fff}
+
+    /* Pager */
+    .pager{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:18px;flex-wrap:wrap}
+    .pager button{min-width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer;padding:0 10px}
+    .pager .active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .pager .ellipsis{padding:0 6px;color:#6b7280;user-select:none}
+
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:999999}
+    .modal-backdrop.show{display:flex}
+    .modal{width:min(520px,calc(100% - 32px));background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.2);padding:14px 14px 12px;border:1px solid var(--border)}
+    .modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+    .modal-title{margin:0;font-weight:800}
+    .modal-body{padding:6px 2px 14px;color:#374151}
+    .modal-actions{display:flex;gap:10px;justify-content:flex-end}
+    .btn.light{background:#fff;border:1px solid var(--border);color:#111}
+    .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    .x{border:0;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#6b7280}
+    .alert-icon{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;margin-right:8px;background:#fee2e2;color:#b91c1c}
+    .success-icon{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;margin-right:8px;background:#dcfce7;color:#166534}
+
+    @keyframes hi {0%{box-shadow:0 0 0 0 rgba(6,182,212,.8)}70%{box-shadow:0 0 0 12px rgba(6,182,212,0)}100%{box-shadow:none}}
+    .highlight{animation:hi 2.4s ease-out 1;outline:2px solid var(--accent);outline-offset:2px;border-radius:14px}
+
+    @media(max-width:980px){.content{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <h1 id="titleRefresh" class="clickable" tabindex="0" title="รีเฟรชหน้า">จัดการร้านอาหาร</h1>
+      <div class="userbar">
+        <span id="adminHello" class="hello">กำลังตรวจสอบสิทธิ์…</span>
+        <button id="logoutBtn" class="btn logout" type="button">ออกจากระบบ</button>
+      </div>
+    </div>
+
+    <!-- Hero + Search -->
+    <header class="hero">
+      <div class="hero-inner">
+        <h2>ค้นหาร้านอาหาร</h2>
+        <div class="searchbar">
+          <div style="position:relative;flex:1">
+            <input id="searchInput" type="text" placeholder="ค้นหาชื่อร้าน, จังหวัด, เขต...">
+            <ul id="suggestBox" role="listbox" aria-label="suggestions"></ul>
+          </div>
+          <button id="searchBtn">ค้นหา</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="leftcol">
+        <aside class="side card">
+          <h3>ตัวกรอง</h3>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">ประเภทอาหาร</div>
+          <div id="typeList" class="filter-list"></div>
+          <div style="margin-top:8px">
+            <button id="clearTypes" class="btn" style="background:#fff;border:1px solid var(--danger);color:#ef4444">ล้างตัวกรอง</button>
+          </div>
+        </aside>
+
+        <aside class="side card add-card">
+          <h3>เพิ่มร้านอาหาร</h3>
+          <div id="miniMap" class="map"></div>
+          <button id="addRestaurantBtn" class="btn" style="width:100%;margin-top:10px;background:var(--accent);color:#fff">เพิ่มร้านอาหาร</button>
+        </aside>
+      </div>
+
+      <section class="main card">
+        <div class="toolbar">
+          <h2>ร้านอาหารทั้งหมด</h2>
+          <select id="sortSel" class="sort">
+            <option value="latest">ล่าสุด</option>
+            <option value="oldest">เก่าสุด</option>
+            <option value="a-z">ชื่อ (A → Z)</option>
+            <option value="z-a">ชื่อ (Z → A)</option>
+          </select>
+        </div>
+
+        <div id="grid" class="grid"></div>
+        <nav id="pager" class="pager" aria-label="pagination"></nav>
+      </section>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="dialog" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+      <div class="modal-hd">
+        <h3 id="dlgTitle" class="modal-title"></h3>
+        <button class="x" type="button" data-close>×</button>
+      </div>
+      <div class="modal-body" id="dlgBody"></div>
+      <div class="modal-actions" id="dlgActions"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    // ---------- Auth ----------
+    const adminHello = document.getElementById('adminHello');
+    async function ensureLoggedIn() {
+      try {
+        const res = await fetch('/admin/me', { credentials: 'include' });
+        if (!res.ok) throw new Error('unauthorized');
+        const me = await res.json();
+        adminHello.textContent = me?.adminUserName ? `สวัสดี, ${me.adminUserName}` : 'สวัสดีผู้ดูแล';
+      } catch { location.href = './LoginAdminPage.html'; }
+    }
+    ensureLoggedIn();
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      try { await fetch('/admin/logout', { method: 'POST', credentials: 'include' }); } catch {}
+      location.href = './LoginAdminPage.html';
+    });
+
+    // mini map (ตกแต่ง)
+    (function miniMap(){
+      try{
+        const el=document.getElementById('miniMap'); if(!el||typeof L==='undefined') return;
+        const map=L.map(el,{center:[13.7563,100.5018],zoom:12,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,zoomControl:false,attributionControl:false});
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+        L.marker([13.7563,100.5018]).addTo(map);
+      }catch(e){}
+    })();
+
+    // ทำให้หัวข้อกดแล้วรีเฟรช
+    const titleRefresh=document.getElementById('titleRefresh');
+    const doHardRefresh=()=>window.location.reload();
+    titleRefresh.addEventListener('click', doHardRefresh);
+    titleRefresh.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); doHardRefresh(); }
+    });
+  </script>
+
+  <!-- Main script -->
+  <script type="module">
+    import { RestaurantApi, RestaurantTypeApi } from './js/api.js';
+
+    const $=(s,p=document)=>p.querySelector(s);
+    const grid=$('#grid'), pager=$('#pager'), searchInput=$('#searchInput'), searchBtn=$('#searchBtn'),
+          sortSel=$('#sortSel'), typeList=$('#typeList'), clearBtn=$('#clearTypes'), suggestBox=$('#suggestBox');
+
+    const PLACEHOLDER_IMG = './images/restaurant-placeholder.png';
+
+    // flash params
+    const params = new URLSearchParams(location.search);
+    const pendingCreated = params.has('created');
+    const pendingUpdated = params.has('updated');
+    const pendingDeleted = params.has('deleted');
+    const highlightId    = params.get('rid');
+
+    if (pendingCreated || pendingUpdated || pendingDeleted || highlightId) {
+      ['created','updated','deleted','rid'].forEach(k => params.delete(k));
+      history.replaceState(null, '', location.pathname + (params.toString()?`?${params}`:''));}
+    if (pendingCreated || pendingUpdated) sortSel.value = 'latest';
+
+    let page=1, size=12, q='';
+    let selectedTypeIds=new Set();
+    let lastServer={totalPages:1,totalElements:0};
+    const suggestCache=new Map();
+
+    const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const nameOf = r => (r.restaurantName ?? r.name ?? '').toString();
+
+    // parse images (support various formats)
+    const imagesOf = (img) => {
+      const out = [];
+      if (!img) out.push(PLACEHOLDER_IMG);
+      else if (Array.isArray(img)) (img.map(String).filter(Boolean).length ? out.push(...img.map(String)) : out.push(PLACEHOLDER_IMG));
+      else if (typeof img === 'object') { const cand = img?.url || img?.src || img?.path; out.push(cand ? String(cand) : PLACEHOLDER_IMG); }
+      else { let s = String(img || '').trim();
+        if (!s) out.push(PLACEHOLDER_IMG);
+        else if (s.startsWith('[')) { try { const a=JSON.parse(s); (Array.isArray(a)&&a.length)?out.push(...a.map(String)):out.push(PLACEHOLDER_IMG);} catch { out.push(PLACEHOLDER_IMG); } }
+        else if (s.includes(',')) { const arr = s.split(',').map(x=>x.trim().replace(/^"(.*)"$/,'$1')).filter(Boolean); arr.length?out.push(...arr):out.push(PLACEHOLDER_IMG); }
+        else out.push(s);
+      }
+      return out;
+    };
+
+    const timeStr=v=>{ if(!v) return ''; const s=String(v); const i=s.indexOf('T'); if(i!==-1) return s.slice(i+1,i+6); if(/^\d{2}:\d{2}/.test(s)) return s.slice(0,5); return ''; };
+    const ts = r => { const c=r.updatedAt||r.createdAt||r.updateTime||r.createTime; const idNum = Number(r.restaurantId ?? r.id ?? 0);
+      if (!c) return idNum; const t=Date.parse(String(c)); return Number.isFinite(t) ? t : idNum; };
+    const debounce=(fn,ms=150)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+
+    /* ---------- Modal helpers ---------- */
+    const dlg = $('#dialog'), dlgTitle=$('#dlgTitle'), dlgBody=$('#dlgBody'), dlgActions=$('#dlgActions');
+    dlg.addEventListener('click', (e)=>{ if(e.target===dlg || e.target.hasAttribute('data-close')) hideDialog(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideDialog(); });
+    function hideDialog(){ dlg.classList.remove('show'); dlg.setAttribute('aria-hidden','true'); dlgActions.innerHTML=''; }
+    function showConfirm({title, message, danger=false, confirmText='ยืนยัน', cancelText='ยกเลิก'}){
+      dlgTitle.innerHTML = `<span class="${danger?'alert-icon':'success-icon'}">${danger?'!':'✓'}</span> ${esc(title)}`;
+      dlgBody.textContent = message;
+      dlgActions.innerHTML = `<button class="btn light" type="button" data-close>${esc(cancelText)}</button><button id="dlgOK" class="btn ${danger?'danger':'primary'}" type="button">${esc(confirmText)}</button>`;
+      dlg.classList.add('show'); dlg.removeAttribute('aria-hidden');
+      return new Promise(res=>{
+        $('#dlgOK').onclick=()=>{ hideDialog(); res(true); };
+        dlg.addEventListener('click', e=>{ if(e.target.hasAttribute('data-close')) res(false); }, {once:true});
+      });
+    }
+    function showAlert({title,message,okText='ตกลง'}){
+      dlgTitle.innerHTML = `<span class="success-icon">✓</span> ${esc(title)}`;
+      dlgBody.textContent = message;
+      dlgActions.innerHTML = `<button id="dlgOK" class="btn primary" type="button">${esc(okText)}</button>`;
+      dlg.classList.add('show'); dlg.removeAttribute('aria-hidden');
+      return new Promise(res=>{ $('#dlgOK').onclick=()=>{ hideDialog(); res(true); }; });
+    }
+
+    // ---------- ดึงเฉพาะ "ประเภทที่มีร้านจริง" ----------
+    async function getUsedTypeIds(){
+      const used = new Set(); const now = Date.now();
+      try{
+        const resAll = await fetch(`/restaurants?_=${now}`, {cache:'no-store'});
+        if(resAll.ok){
+          const list = await resAll.json();
+          for(const r of list){
+            const tid = r?.restaurantType?.restaurantTypeId ?? r?.restaurantType?.id;
+            if (tid!=null) used.add(Number(tid));
+          }
+          if (used.size) return used;
+        }
+      }catch{}
+      try{
+        const BIG=1000;
+        const url=new URL(window.location.origin + '/restaurants/searchPaged');
+        url.searchParams.set('_', String(now));
+        url.searchParams.set('page','0');
+        url.searchParams.set('size', String(BIG));
+        const res = await fetch(url, {cache:'no-store'});
+        if(res.ok){
+          const data = await res.json();
+          const list = data.content ?? (Array.isArray(data)?data:[]);
+          for(const r of list){
+            const tid = r?.restaurantType?.restaurantTypeId ?? r?.restaurantType?.id;
+            if (tid!=null) used.add(Number(tid));
+          }
+        }
+      }catch{}
+      return used;
+    }
+
+    // filter by selected types (OR)
+    const typeIdOf = r => Number(r?.restaurantType?.restaurantTypeId ?? r?.restaurantType?.id ?? NaN);
+    const matchesSelectedTypes = r => { if (selectedTypeIds.size === 0) return true; const tid = typeIdOf(r); return Number.isFinite(tid) && selectedTypeIds.has(tid); };
+    const filterBySelectedTypes = list => selectedTypeIds.size ? list.filter(matchesSelectedTypes) : list;
+
+    async function loadTypes(){
+      const types=await RestaurantTypeApi.list().catch(()=>[]); const usedTypeIds = await getUsedTypeIds();
+      typeList.innerHTML='';
+      const filtered = types.filter(t=>{ const id = t.restaurantTypeId ?? t.id; return id!=null && usedTypeIds.has(Number(id)); });
+      filtered.sort((a,b)=> String(a.typeName??a.name??'').localeCompare(String(b.typeName??b.name??''),'th'));
+      filtered.forEach(t=>{
+        const id=t.restaurantTypeId ?? t.id;
+        const row=document.createElement('label');
+        row.className='filter-item';
+        row.innerHTML=`<input type="checkbox" value="${id}"> <span>${esc(t.typeName ?? t.name ?? '')}</span>`;
+        typeList.appendChild(row);
+      });
+      typeList.addEventListener('change', ()=>{
+        selectedTypeIds=new Set([...typeList.querySelectorAll('input:checked')].map(i=>parseInt(i.value,10)));
+        goToPage(1);
+      });
+      document.getElementById('clearTypes').onclick=()=>{
+        typeList.querySelectorAll('input').forEach(cb=>cb.checked=false);
+        selectedTypeIds.clear(); goToPage(1);
+      };
+    }
+
+    // ---------- FETCH ----------
+    function sortList(list){
+      const mode=sortSel.value;
+      if(mode==='a-z')    list.sort((a,b)=>nameOf(a).localeCompare(nameOf(b),'th'));
+      if(mode==='z-a')    list.sort((a,b)=>nameOf(b).localeCompare(nameOf(a),'th'));
+      if(mode==='latest') list.sort((a,b)=> ts(b)-ts(a));
+      if(mode==='oldest') list.sort((a,b)=> ts(a)-ts(b));
+      return list;
+    }
+
+    async function fetchPage(page1){
+      const preferLatest = (sortSel.value==='latest' && !q);
+      const tsNow = Date.now();
+
+      if(preferLatest){
+        try{
+          const resAll = await fetch(`/restaurants?_=${tsNow}`, {cache:'no-store'});
+          if(resAll.ok){
+            let content = await resAll.json();
+            content = filterBySelectedTypes(content);
+            content = sortList(content);
+            const start=(page1-1)*size, end=start+size;
+            lastServer.totalElements=content.length;
+            lastServer.totalPages=Math.max(1,Math.ceil(content.length/size));
+            return content.slice(start,end);
+          }
+        }catch{}
+        try{
+          const BIG=1000;
+          const url=new URL(window.location.origin + '/restaurants/searchPaged');
+          url.searchParams.set('_', String(tsNow));
+          url.searchParams.set('page','0'); url.searchParams.set('size', String(BIG));
+          const res = await fetch(url, {cache:'no-store'}).then(r=> r.ok ? r.json() : Promise.reject());
+          let content = res.content ?? (Array.isArray(res)?res:[]);
+          content = filterBySelectedTypes(content);
+          content = sortList(content);
+          const start=(page1-1)*size, end=start+size;
+          lastServer.totalElements=content.length;
+          lastServer.totalPages=Math.max(1,Math.ceil(content.length/size));
+          return content.slice(start,end);
+        }catch{}
+      }
+
+      if (selectedTypeIds.size > 1) {
+        const BIG=1000;
+        const url=new URL(window.location.origin + '/restaurants/searchPaged');
+        if(q) url.searchParams.set('q', q);
+        url.searchParams.set('page','0');
+        url.searchParams.set('size', String(BIG));
+        url.searchParams.set('_', String(tsNow));
+        const res=await fetch(url, { cache:'no-store' }).then(r=> r.ok ? r.json() : Promise.reject(r.statusText));
+        let list = res.content ?? (Array.isArray(res)?res:[]);
+        list = filterBySelectedTypes(list);
+        list = sortList(list);
+        const start=(page1-1)*size, end=start+size;
+        lastServer.totalElements=list.length;
+        lastServer.totalPages=Math.max(1,Math.ceil(list.length/size));
+        return list.slice(start,end);
+      }
+
+      const url=new URL(window.location.origin + '/restaurants/searchPaged');
+      if(q) url.searchParams.set('q', q);
+      if(selectedTypeIds.size===1) url.searchParams.set('typeId', String([...selectedTypeIds][0]));
+      url.searchParams.set('page', String(page1-1));
+      url.searchParams.set('size', String(size));
+      url.searchParams.set('_', String(tsNow));
+      const res=await fetch(url, { cache:'no-store' }).then(r=> r.ok ? r.json() : Promise.reject(r.statusText));
+      const content=res.content ?? (Array.isArray(res)?res:[]);
+      lastServer.totalElements=res.totalElements ?? content.length;
+      lastServer.totalPages=res.totalPages ?? Math.max(1, Math.ceil(lastServer.totalElements/size));
+      return sortList(content);
+    }
+
+    function renderCards(list){
+      grid.innerHTML='';
+      if(!list.length){ grid.innerHTML='<div style="color:#6b7280;padding:16px">ไม่พบข้อมูล</div>'; return; }
+      for(const r of list){
+        const imgs=imagesOf(r.restaurantImg);
+        const typeName=r.restaurantType?.typeName ?? '-';
+        const pos=[r.subdistrict,r.district,r.province].filter(Boolean).join(' / ');
+        const time=`${timeStr(r.openTime)||'--:--'} - ${timeStr(r.closeTime)||'--:--'}`;
+        const phone=r.restaurantPhone || '—';
+        const id=r.restaurantId ?? r.id;
+
+        const card=document.createElement('article');
+        card.className='card restaurant';
+        card.dataset.id = id;
+
+        const imgEls = imgs.map((src,i)=>
+          `<img src="${esc(src)}" alt=""
+                ${i>0?'class="hidden"':''}
+                loading="lazy"
+                onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}';this.classList.remove('hidden')">`
+        ).join('');
+
+        card.innerHTML=`
+          <div class="cover" data-role="cover" data-id="${id}">
+            ${imgEls}
+            ${imgs.length>1?`<div class="slide-dots">${imgs.map((_,i)=>`<i class="${i===0?'active':''}"></i>`).join('')}</div>`:''}
+          </div>
+          <div class="r-body">
+            <h3 class="r-title">${esc(nameOf(r))}</h3>
+            <div class="r-sub">🍽 ${esc(typeName)} ${pos?` • 📍 ${esc(pos)}`:''}</div>
+            <div class="r-meta"><div>🕘 ${time}</div><div>📞 ${esc(phone)}</div></div>
+            <div class="r-actions">
+              <button class="btn edit" data-act="edit" data-id="${id}">แก้ไข</button>
+              <button class="btn del"  data-act="del"  data-id="${id}">ลบ</button>
+            </div>
+          </div>`;
+        grid.appendChild(card);
+      }
+
+      const rid = highlightId;
+      if(rid){
+        const el = grid.querySelector(`[data-id="${CSS.escape(rid)}"]`);
+        if(el){ el.classList.add('highlight'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+      }
+    }
+
+    function renderPager(){
+      const total=lastServer.totalPages||1;
+      const cur=Math.min(Math.max(1,page), total);
+      pager.innerHTML='';
+
+      const mk=(label,p,active=false,dis=false)=>{
+        const b=document.createElement('button'); b.textContent=label;
+        if(active) b.classList.add('active'); if(dis){b.disabled=true;b.style.opacity=.6;}
+        b.onclick=()=>goToPage(p); return b;
+      };
+      const ellipsis=()=>{const s=document.createElement('span'); s.textContent='…'; s.className='ellipsis'; return s;};
+
+      // prev
+      pager.appendChild(mk('‹', Math.max(1,cur-1), false, cur===1));
+
+      // window with both-side ellipsis
+      const win=2;
+      const pages=[];
+      for(let i=1;i<=total;i++){
+        if(i===1||i===total||(i>=cur-win && i<=cur+win)) pages.push(i);
+      }
+      let last=0;
+      for(const p of pages){
+        if(p-last>1) pager.appendChild(ellipsis());   // <-- จะอยู่ “ตรงกลาง” ระหว่างกลุ่มหน้าที่ห่างกัน
+        pager.appendChild(mk(String(p),p,p===cur));
+        last=p;
+      }
+
+      // next
+      pager.appendChild(mk('›', Math.min(total,cur+1), false, cur===total));
+    }
+
+    function nextSlide(cover){
+      const imgs=[...cover.querySelectorAll('img')];
+      if(imgs.length<=1) return;
+      let idx=imgs.findIndex(i=>!i.classList.contains('hidden'));
+      imgs[idx].classList.add('hidden');
+      const dots=cover.querySelectorAll('.slide-dots i');
+      if(dots.length) dots[idx].classList.remove('active');
+      idx=(idx+1)%imgs.length;
+      imgs[idx].classList.remove('hidden');
+      if(dots.length) dots[idx].classList.add('active');
+    }
+
+    grid.addEventListener('click', async (e)=>{
+      const cover=e.target.closest('[data-role="cover"]');
+      if(cover){ nextSlide(cover); return; }
+
+      const btn=e.target.closest('button[data-act]'); if(!btn) return;
+      const id=btn.dataset.id;
+      if(btn.dataset.act==='edit'){
+        location.href='./AddrestaurantPage.html?id='+encodeURIComponent(id);
+      }else if(btn.dataset.act==='del'){
+        const ok = await showConfirm({ title:'ยืนยันการลบ', message:'คุณต้องการลบร้านอาหารนี้ใช่หรือไม่?', danger:true, confirmText:'ยืนยัน', cancelText:'ยกเลิก' });
+        if(!ok) return;
+        try{
+          await RestaurantApi.remove(id);
+          await refreshPage();
+          if(grid.children.length===0 && page>1){ page-=1; await refreshPage(); }
+          showAlert({title:'ลบสำเร็จ', message:'ลบรายการเรียบร้อยแล้ว'});
+        }catch{ showAlert({title:'เกิดข้อผิดพลาด', message:'ลบไม่สำเร็จ'}); }
+      }
+    });
+
+    document.getElementById('addRestaurantBtn').onclick=()=> location.href='./AddrestaurantPage.html';
+    searchBtn.onclick=()=>{ q=searchInput.value.trim(); hideSuggest(); goToPage(1); };
+    sortSel.onchange=()=> refreshPage();
+
+    async function goToPage(p){
+      page=Math.max(1,p);
+      const list=await fetchPage(page);
+      renderCards(sortList(list));
+      renderPager();
+      window.scrollTo({top:document.querySelector('.main.card').offsetTop-16,behavior:'smooth'});
+    }
+    async function refreshPage(){
+      const list=await fetchPage(page);
+      renderCards(sortList(list));
+      renderPager();
+    }
+
+    function hideSuggest(){ suggestBox.classList.remove('show'); suggestBox.innerHTML=''; }
+    function renderSuggestions(list, term){
+      if(!list.length){
+        suggestBox.innerHTML = `<li>ไม่มีผลลัพธ์ • กด Enter เพื่อค้นหา “${esc(term)}”</li>`;
+        suggestBox.classList.add('show'); return;
+      }
+      suggestBox.innerHTML = list.map((r)=>{
+        const img=imagesOf(r.restaurantImg)[0]||PLACEHOLDER_IMG;
+        const pos=[r.subdistrict,r.district,r.province].filter(Boolean).join(' • ');
+        const t=r.restaurantType?.typeName ?? '';
+        return `
+          <li data-text="${esc(nameOf(r))}">
+            ${img?`<img class="thumb" src="${esc(img)}" alt="" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">`:`<div class="thumb"></div>`}
+            <div style="flex:1">
+              <div style="font-weight:600">${esc(nameOf(r))}</div>
+              <div style="font-size:12px">${t?`🍽️ ${esc(t)}`:''}${pos?` · 📍 ${esc(pos)}`:''}</div>
+            </div>
+            <span style="font-size:12px">Enter</span>
+          </li>`;
+      }).join('') + `<li data-action="searchAll">🔍 ค้นหา “${esc(term)}” ทั้งหมด</li>`;
+      suggestBox.classList.add('show');
+    }
+    const fetchSuggestions = debounce(async ()=>{
+      const term = searchInput.value.trim();
+      if(!term){ hideSuggest(); return; }
+      if(suggestCache.has(term)){ renderSuggestions(suggestCache.get(term), term); return; }
+      let list=[];
+      try{
+        const url = new URL(window.location.origin + '/restaurants/searchPaged');
+        url.searchParams.set('q', term); url.searchParams.set('page','0'); url.searchParams.set('size','20');
+        const res = await fetch(url, { cache:'no-store' }).then(r=> r.ok ? r.json() : null);
+        list = res ? (res.content ?? (Array.isArray(res)?res:[])) : [];
+      }catch{}
+      suggestCache.set(term, list);
+      renderSuggestions(list, term);
+    }, 160);
+
+    suggestBox.addEventListener('mousedown', (e)=>{
+      const li=e.target.closest('li'); if(!li) return;
+      q = li.dataset.text || searchInput.value.trim();
+      hideSuggest(); goToPage(1);
+    });
+    searchInput.addEventListener('input', fetchSuggestions);
+    searchInput.addEventListener('keydown', (e)=>{
+      if(e.key==='Escape'){ hideSuggest(); return; }
+      if(e.key==='Enter'){ e.preventDefault(); q=searchInput.value.trim(); hideSuggest(); goToPage(1); }
+    });
+    document.addEventListener('click', (e)=>{ if(!suggestBox.contains(e.target) && e.target!==searchInput) hideSuggest(); });
+
+    await loadTypes();
+    await goToPage(1);
+
+    if(pendingCreated) showAlert({title:'เพิ่มสำเร็จ', message:'บันทึกร้านอาหารเรียบร้อยแล้ว'});
+    if(pendingUpdated) showAlert({title:'แก้ไขสำเร็จ', message:'อัปเดตร้านอาหารเรียบร้อยแล้ว'});
+    if(pendingDeleted) showAlert({title:'ลบสำเร็จ', message:'ลบรายการเรียบร้อยแล้ว'});
+  </script>
+</body>
+</html>

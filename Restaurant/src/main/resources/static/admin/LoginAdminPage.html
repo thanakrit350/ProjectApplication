@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>เข้าสู่ระบบผู้ดูแลระบบ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --bg:#f7f7fb; --card:#fff; --muted:#6b7280; --text:#111827; --border:#e5e7eb; --accent:#06b6d4; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto}
+    .wrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .card{width:100%;max-width:420px;background:#fff;border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 12px 26px rgba(0,0,0,.06)}
+    .logo{width:72px;height:72px;border-radius:16px;display:block;margin:0 auto 10px;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+    h1{font-size:18px;text-align:center;margin:6px 0 14px}
+    label{display:block;font-size:13px;margin:10px 0 6px}
+    input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;transition:.15s border-color,.15s background}
+    input.invalid{border-color:#ef4444;background:#fff7f7}
+    input.valid{border-color:#10b981;background:#f0fdf4}
+    .btn{width:100%;padding:11px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer;margin-top:12px}
+    .muted{color:var(--muted);font-size:12px;text-align:center;margin-top:10px}
+
+    /* กล่องแสดงกฎและข้อผิดพลาดใต้ช่อง */
+    .rules{margin-top:6px;border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:8px 10px;color:#991b1b;font-size:12px}
+    .rules.hidden{display:none}
+    .rules ul{margin:6px 0 0 18px;padding:0}
+    .rules li{margin:2px 0}
+    .rules li.ok{color:#166534;list-style:"✔  "}
+    .rules li.bad{color:#991b1b;list-style:"✖  "}
+    .loading{opacity:.6;pointer-events:none}
+
+    /* error ด้านล่างฟอร์ม (จาก server) */
+    .error-bottom{display:none;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;padding:8px 10px;font-size:13px;margin-top:10px}
+    .error-bottom.show{display:block}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <img class="logo" src="./images/logo.png" alt="Restaurant Admin Logo" />
+      <h1>เข้าสู่ระบบผู้ดูแลระบบ</h1>
+
+      <!-- ปิด native validation ด้วย novalidate -->
+      <form id="form" novalidate>
+        <label for="user">ชื่อผู้ใช้</label>
+        <input id="user" autocomplete="username" placeholder="กรุณากรอกชื่อผู้ใช้">
+        <div id="userRules" class="rules hidden" aria-live="polite">
+          <strong>ชื่อผู้ใช้ดูแลระบบ (adminUserName)</strong>
+          <ul>
+            <li data-k="format" class="bad">ต้องเป็นตัวอักษรอังกฤษ/ตัวเลข <em>หรือ</em> อีเมลที่ถูกต้อง</li>
+            <li data-k="len"    class="bad">ความยาว 5–50 ตัวอักษร</li>
+            <li data-k="space"  class="bad">ห้ามมีช่องว่าง</li>
+            <li data-k="empty"  class="bad">ต้องไม่เป็นค่าว่าง</li>
+          </ul>
+        </div>
+
+        <label for="pass">รหัสผ่าน</label>
+        <input id="pass" type="password" autocomplete="current-password" placeholder="กรุณากรอกรหัสผ่าน">
+        <div id="passRules" class="rules hidden" aria-live="polite">
+          <strong>รหัสผ่าน (password)</strong>
+          <ul>
+            <li data-k="charset" class="bad">ใช้อักษรอังกฤษหรือตัวเลขเท่านั้น</li>
+            <li data-k="len"     class="bad">ความยาว 8–16 ตัวอักษร</li>
+            <li data-k="space"   class="bad">ห้ามมีช่องว่าง</li>
+            <li data-k="empty"   class="bad">ต้องไม่เป็นค่าว่าง</li>
+          </ul>
+        </div>
+
+        <button id="btn" class="btn" type="submit">เข้าสู่ระบบ</button>
+        <div id="errBottom" class="error-bottom"></div>
+      </form>
+
+      <div class="muted">ใช้ session ในเบราว์เซอร์นี้ • หากมีปัญหาให้รีเฟรชอีกครั้ง</div>
+    </div>
+  </div>
+
+  <script>
+    const form=document.getElementById('form');
+    const user=document.getElementById('user');
+    const pass=document.getElementById('pass');
+    const btn =document.getElementById('btn');
+    const errBottom=document.getElementById('errBottom');
+
+    // already logged-in → redirect
+    (async function checkMe(){
+      try{
+        const r=await fetch('/admin/me',{credentials:'include'});
+        if(r.ok){ location.href='./ListRestaurantPage.html'; }
+      }catch{}
+    })();
+
+    // ---------- Validation helpers ----------
+    const emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    const userPlainRe=/^[A-Za-z0-9]+$/;           // ตัวอักษร/ตัวเลขล้วน
+    const passRe=/^[A-Za-z0-9]+$/;                // ตัวอักษร/ตัวเลขล้วน
+
+    function validateUsername(v){
+      const s=(v??'').trim();
+      const res={
+        empty: s.length>0,
+        space: !/\s/.test(v||''),               // ไม่มีช่องว่าง
+        len: s.length>=5 && s.length<=50,
+        format: emailRe.test(s) || userPlainRe.test(s)
+      };
+      return res;
+    }
+    function validatePassword(v){
+      const hasValue = (v??'').length>0;
+      const res={
+        empty: hasValue,
+        space: !/\s/.test(v||''),
+        len: (v||'').length>=8 && (v||'').length<=16,
+        charset: passRe.test(v||'')
+      };
+      return res;
+    }
+
+    function paint(input, rulesBox, res){
+      const allOk = Object.values(res).every(Boolean);
+      input.classList.toggle('invalid', !allOk);
+      input.classList.toggle('valid', allOk);
+
+      // show rule box when invalid or when user is typing
+      rulesBox.classList.toggle('hidden', allOk && document.activeElement!==input);
+
+      // update each bullet
+      [...rulesBox.querySelectorAll('li')].forEach(li=>{
+        const k=li.getAttribute('data-k');
+        const ok = !!res[k];
+        li.classList.toggle('ok', ok);
+        li.classList.toggle('bad', !ok);
+      });
+    }
+
+    // live validation
+    user.addEventListener('input', ()=> paint(user, userRules, validateUsername(user.value)));
+    user.addEventListener('blur',  ()=> paint(user, userRules, validateUsername(user.value)));
+    pass.addEventListener('input', ()=> paint(pass, passRules, validatePassword(pass.value)));
+    pass.addEventListener('blur',  ()=> paint(pass, passRules, validatePassword(pass.value)));
+
+    // ---------- Submit ----------
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      errBottom.classList.remove('show'); errBottom.textContent='';
+
+      const u = user.value;
+      const p = pass.value;
+      const uRes = validateUsername(u);
+      const pRes = validatePassword(p);
+
+      paint(user, userRules, uRes);
+      paint(pass, passRules, pRes);
+
+      const uOk = Object.values(uRes).every(Boolean);
+      const pOk = Object.values(pRes).every(Boolean);
+      if(!uOk || !pOk){
+        // โฟกัสช่องแรกที่ยังไม่ผ่าน
+        (!uOk ? user : pass).focus();
+        return;
+      }
+
+      form.classList.add('loading'); btn.textContent='กำลังเข้าสู่ระบบ...';
+      try{
+        const res = await fetch('/admin/login', {
+          method:'POST',
+          credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ username: u.trim(), password: p })
+        });
+        if(!res.ok){
+          const t=await res.text().catch(()=> '');
+          throw new Error(t || 'เข้าสู่ระบบไม่สำเร็จ');
+        }
+        location.href='./ListRestaurantPage.html';
+      }catch(ex){
+        errBottom.textContent = ex.message.includes('Unauthorized') ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : ex.message;
+        errBottom.classList.add('show');
+      }finally{
+        form.classList.remove('loading'); btn.textContent='เข้าสู่ระบบ';
+      }
+    });
+  </script>
+</body>
+</html>

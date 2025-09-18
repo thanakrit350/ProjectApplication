@@ -1,0 +1,21 @@
+/* --- bring suggestion above the cards --- */
+.hero{
+  position: relative;
+  z-index: 1000;      /* สูงกว่า .content */
+  overflow: visible;  /* ให้กล่องโผล่พ้น hero ได้ */
+}
+.hero::after{ z-index: 1; }
+.hero .hero-inner{ position: relative; z-index: 2; }
+
+.searchbar, .searchbox{ position: relative; z-index: 3; }
+#suggestBox{
+  position: absolute;
+  z-index: 100000;    /* กล่องแนะนำอยู่สูงสุด */
+}
+
+/* ให้คอนเทนต์อยู่ลำดับรองลงมา */
+.content{ position: relative; z-index: 0; }
+
+/* ถ้าเคยเพิ่ม block นี้ไว้ ให้ลบ/คอมเมนต์ทิ้ง
+.content, .main.card, .card.restaurant, .r-img { position: relative; z-index: 0; }
+*/
