@@ -1,4 +1,4 @@
-# 📍📱 แอปพลิเคชันแนะนำการนัดหมายสถานที่รับประทานอาหาร
+# 📍🍽️📱 แอปพลิเคชันแนะนำการนัดหมายสถานที่รับประทานอาหาร
 
 **แอปพลิเคชันแนะนำการนัดหมายสถานที่รับประทานอาหาร**  
 คือแอปพลิเคชันมือถือที่พัฒนาด้วย **Flutter** เพื่อเป็นแพลตฟอร์มให้กลุ่มเพื่อนหรือสมาชิกในสังคม  
@@ -34,3 +34,35 @@
 
 ---
 
+# 📍🍽️📱 Application recommending dining appointments
+
+## 📝 Description
+**Application recommending dining appointments**  
+is a mobile application built with **Flutter** to connect friends or social groups  
+for easy scheduling and dining together.  
+The app is designed with **simplicity, ease of use, and accessibility** in mind to reduce the technology gap.
+
+---
+
+## 🎯 Project Goals
+This project aims to provide a platform that enables users to:
+- **Communicate** : Invite friends to join activities, schedule dates and times, and share activity details.  
+- **Engage socially** : Create and join dining events with others to strengthen relationships with friends and family.  
+- **Access essential information** : View restaurant details, opening hours, locations, and all activity information in one place.
+
+---
+
+## 🌟 Key Features
+- **Add Post Activity** : Create activities by setting date, time, and optionally pre-selecting or letting friends vote for a restaurant.  
+- **Join Activity** : Join existing activities, view participants, and track event status.  
+- **Select Choice** : Vote for restaurants to collectively decide on a dining location.  
+- **View Restaurant** : View restaurant details including photos, operating hours, live map location, and directions.
+
+---
+
+## 🛠️ Technologies Used
+This project is developed with **Flutter** for the frontend and robust backend technologies:
+- **Flutter** : Build cross-platform apps for **iOS** and **Android** from a single codebase with responsive UI.  
+- **Spring Boot API** : Core backend technology handling business logic and providing **RESTful APIs**.  
+- **MySQL** : Reliable database system storing essential data such as users, restaurants, and activities.  
+- **OpenStreetMap & Leaflet** : Provide interactive maps, restaurant search, and real-time route navigation.
